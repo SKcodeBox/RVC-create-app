@@ -1,0 +1,14 @@
+# ボーカル分離（BGM・伴奏と声を分ける）に使うライブラリ。
+# audio-separator は Applio より新しい PyTorch が必要なため、別の仮想環境（.venv-separation）に入れる。
+# [cpu] などを付けると onnxruntime も入るが、使うモデルは PyTorch だけで動くので付けない
+# （onnxruntime は Microsoft へ利用状況を送る処理を含む。separate.py が代わりのモジュールを置く）
+audio-separator==0.48.0
+torch==2.14.1
+torchvision==0.29.1
+onnx-weekly==1.24.0.dev20261026
+
+# 音声処理のライブラリは、Applio 側（.venv）で動作を確かめているバージョンにそろえる
+librosa==0.11.0
+numpy==2.4.6
+scipy==1.18.0
+soundfile==0.14.0

@@ -1,36 +1,230 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RVC Studio
 
-## Getting Started
+声の録音から声のモデルを作り（学習）、音声ファイルや曲をその声に変換するアプリです。
+画面は Next.js、AI の処理は同じ PC で動く Python サーバー（[Applio](https://github.com/IAHispano/Applio) 3.7.1 を利用）が行います。
+**Windows と macOS の両方で動きます**（Linux でも動く作りです）。
 
-First, run the development server:
+## 必要なもの
+
+- 次のどちらか
+  - **Windows 10 / 11 ＋ NVIDIA の GPU**（GeForce RTX 20 シリーズ以降がおすすめ。ドライバーは最新にしてください）
+  - **Apple Silicon の Mac**（M1 以降。GPU＝MPS で学習・変換します）
+  - GPU がなくても動きますが、学習にとても時間がかかります
+- Node.js 20 以上
+- ディスクの空き 15GB 以上
+  - ライブラリと AI モデルで約3GB（NVIDIA の GPU 用の PyTorch を入れる Windows は約6GB）
+  - BGM・伴奏を取り除く機能を初めて使うときに、さらに約1.4〜2GB
+  - コミュニティの事前学習モデルを使うときは、1つにつき約1.3GB
+  - 学習したモデル1つにつき約1.5GB〜（学習を再開するためのファイル約1.3GB と、保存のたびに書き出すモデル 1個約55MB）。
+    モデル一覧の「保存容量を見る・整理する」で減らせます
+- インターネット接続（初回のセットアップと、AI モデルを初めて使うとき）
+
+## はじめかた
+
+Windows は PowerShell かコマンドプロンプト、Mac はターミナルで、このフォルダを開いて実行します。
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install          # 画面のライブラリ（初回のみ）
+npm run rvc:setup    # RVC サーバーの準備（初回のみ・数分〜十数分）
+npm run app          # 画面と RVC サーバーをまとめて起動
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+起動したら http://127.0.0.1:3000 を開きます。終了は Ctrl+C です。
+`npm run app` は、画面を本番用にビルドしてから起動します（画面のコードが変わったときだけビルドし直します。1分ほど）。
+画面のコードを書き換えながら確かめたいときは、すぐ反映される開発用の `npm run dev:all` を使います（メモリを約1GB多く使います）。
+どちらも、画面はこの PC からだけ開けます（同じ Wi-Fi の他の機器からは開けません）。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`rvc:setup` が行うこと（Windows・Mac 共通のスクリプト `scripts/setup.mjs`）:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Python 管理ツール [uv](https://docs.astral.sh/uv/) を `~/.local/bin`（Windows は `%USERPROFILE%\.local\bin`）に入れる（入っていない場合。PATH は変更しない）
+2. Applio 3.7.1 を `rvc-server/applio/` にダウンロードし、このアプリ用の修正を当てる（`rvc-server/patches/apply_patches.py`）
+3. Python 3.12 の仮想環境 `rvc-server/.venv/` を作り、PyTorch などを入れる。
+   **NVIDIA の GPU があれば GPU 版の PyTorch**（CUDA 12.8）を入れる。音声・動画の読み書きに使う ffmpeg も入る（imageio-ffmpeg）
+4. BGM・伴奏を取り除く機能（ボーカル分離）用の仮想環境 `rvc-server/.venv-separation/` を作る
+5. 学習・変換に使う AI モデル（ピッチ検出・声の特徴抽出・事前学習モデル）をダウンロード
 
-## Learn More
+前のバージョンから更新したときも、`npm run rvc:setup` をもう一度実行してから起動し直してください。
 
-To learn more about Next.js, take a look at the following resources:
+## 学習（モデルを作る）
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 学習しすぎ（過学習）を防ぐ仕組み
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+エポックを増やしすぎると、学習用の音声には合っていくのに、初めて聞く言葉や音程で声が崩れていきます（過学習）。
+このアプリは次のように、それを自動で見分けます。
 
-## Deploy on Vercel
+- 学習用の音声の一部（約4%・最大30個）を **検証用に取り分けて、学習には使わない**
+- 途中のモデルが保存されるたびに、検証用の音声をどれだけ再現できるか（メルスペクトログラムの誤差）を測る
+- 誤差が 50 エポックのあいだ 1% 以上良くならなければ、**学習を自動で止める**（「学習しすぎたら自動で止める」をオフにすると、最後まで学習します）
+- いちばん誤差の小さかったエポックが「おすすめ」になり、変換のときに最初から選ばれる
+- 保存のたびに、決まった話し声をそのモデルの声にした **試し聴き用の音声** を作る（声の高さはモデルに合わせる）。
+  学習中の画面と、モデル一覧の「品質を確かめる」で聴き比べられる
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+音声が短い（約1分未満）ときは検証用の音声を取り分けません。その場合は試し聴きで選んでください。
+検証用の音声が少ない（3分未満くらいの音声）と誤差が上下しやすいので、「おすすめ」は目安として、前後のエポックも聴き比べてください。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+学習しすぎで自動的に止まったときは、続きから学習する意味がないため、再開用のファイル（約1.3GB）を自動で削除します。
+
+### 事前学習モデル
+
+学習の出発点にするモデルを選べます。初めて使うときに `rvc-server/data/pretrained/` にダウンロードします（約1.3GB）。
+
+| 名前 | 公開している人 | サンプルレート |
+| --- | --- | --- |
+| RVC 標準 | RVC | 32k・40k・48k |
+| TITAN（Medium） | blaise-tk（Applio の開発者） | 32k・40k・48k |
+| Snowie V3.1 | MUSTAR | 32k・40k・48k |
+| KLM 4 | SeoulStreamingStation | 32k・40k・48k |
+| Ov2 Super | ORVC | 32k・40k |
+
+一覧は Applio が配布しているもの（[pretrains.json](https://huggingface.co/IAHispano/Applio/raw/main/pretrains.json)）から選んでいます。
+
+### 動画の URL（YouTube など）から学習する
+
+「モデルを作る」の「2. 学習用の音声」で **動画の URL（YouTube など）** に切り替え、URL を貼って学習を始めます。
+
+- 動画ごとに「使う範囲」（例: `1:30` 〜 `12:00`）を指定できます。空欄なら動画全体です。最大10本まで組み合わせられます
+- いちばん音質の良い音声（YouTube ならたいてい Opus・約160kbps）を取り込みます
+- yt-dlp（ダウンロードに使う部品）は **1日に1回まで自動で最新版に更新** します。
+  ダウンロードに失敗したときも、YouTube の仕様変更の可能性があれば、その場で更新してもう一度試します
+- ログインが必要な動画、メンバー限定の動画、3時間を超える動画、ライブ配信中の動画は使えません
+
+> **注意**: YouTube の利用規約では、許可なく動画をダウンロードすることは禁止されています。
+> 自分の動画か、許可を得た動画だけに使ってください。他の人の声を使うときは、必ず本人の許可を取ってください。
+
+### 音声の下ごしらえ（BGM・伴奏を取り除く）
+
+BGM・伴奏が入ったまま学習すると、その音まで「声」として覚えてしまい、変換した声に雑音が混ざります。
+
+| 選ぶもの | 学習の前に行うこと | 向いている音声 |
+| --- | --- | --- |
+| BGM・伴奏が入っている | AI で BGM・伴奏を取り除いて声だけにし、残響（リバーブ・エコー）も取り除く。ハモリ（コーラス）も取り除ける（オプション） | 歌ってみた・カバー曲・BGM 付きの実況や配信 |
+| BGM のない話し声 | 雑音（空調の音・物音など）を減らす（Applio の DeepFilterNet） | 雑談・朗読・ナレーション |
+| そのまま使う | なにもしない | 伴奏のない歌声（アカペラ）・静かな場所で録音した声 |
+
+- BGM・伴奏の除去は **高精度**（2つの AI の結果の平均）と **速さ優先**（1つの AI）から選べます
+- 手順ごとの途中経過（下ごしらえの前・BGM 除去の後・残響除去の後・ハモリ除去の後）を残すので、
+  モデル一覧の「学習に使った音声を聴く」で **どの手順で音が変わったかを聴き比べられます**
+- 取り除けるのは BGM・伴奏・残響・ハモリです。**ほかの人の声は残る**ので、学習したい人が一人で話している（歌っている）範囲を選んでください
+
+使っている AI モデル（[audio-separator](https://github.com/nomadkaraoke/python-audio-separator) 0.48.0 で動かす）と、
+MUSDB18 の50曲（7秒ずつ）で測った精度（SDR、大きいほど良い）:
+
+| 手順 | モデル | 精度 | 処理時間の目安（Apple M5） |
+| --- | --- | --- | --- |
+| BGM・伴奏の除去（高精度） | MelBand RoFormer（Kimberley Jensen・overlap 2）＋ BS RoFormer Revive V2（unwa）の平均 | 11.80dB | 音声の長さの約2.6倍 |
+| BGM・伴奏の除去（速さ優先） | MelBand RoFormer（Kimberley Jensen） | 11.25dB | 約0.4倍 |
+| 残響・エコーの除去 | UVR-DeEcho-DeReverb（FoxJoy） | — | 約0.13倍 |
+| ハモリの除去 | BS RoFormer Karaoke（frazer・becruily） | — | 約1.1倍 |
+
+ほかに試したモデル: Kim FT3 11.30dB、Big Beta 6X 11.19dB、becruily 10.82dB、Gabox FV4 10.66dB。
+NVIDIA の GPU なら、処理時間はこれより大幅に短くなります。
+
+## 変換
+
+### 声の高さを自動で合わせる
+
+元の声の高さを調べて、モデルの声の高さ（学習用の音声から計算したもの）に近づけます。
+曲を変換するときは、伴奏とキーがずれないよう、オクターブ（±12）単位で合わせます。
+取り込んだモデルは、モデル一覧で「声の高さ（低め・高め）」を設定すると使えます。
+
+### 曲（伴奏あり）を変換する
+
+「2. 変換する音声」で **曲（伴奏あり）** を選ぶと、次の順に処理します。
+
+1. AI で曲を「メインの声」「伴奏」（と「ハモリ」）に分ける。伴奏は「元の曲 − 分けた声」で作るので、楽器の音は失われない
+2. 元の声の残響を取り除いてから（おすすめ）、メインの声を変換する。ハモリは「一緒に変換」「分けて変換」「元の声のまま」「消す」から選べる
+3. 変換した声の大きさを元の曲の声に合わせ、軽い残響を付け直して、伴奏と合わせる（音割れしないよう、大きすぎるときは全体を下げる）
+
+できあがった曲のほか、「変換した声だけ」「伴奏だけ」も保存できます。書き出す形式は WAV・FLAC・MP3（320kbps）から選べます。
+
+### そのほかの設定（詳しい設定）
+
+- 子音・息の保護の強さ（初期値は Applio と同じ。RVC の値でいう 0.33）
+- ピッチの検出方法（rmvpe・fcpe・crepe）。crepe は Mac では GPU を使えず、とても遅くなります（7秒の音声に約1分半）。
+  Applio 3.7.1 の「組み合わせ（hybrid）」は中身が作られておらず必ず失敗するため、選べないようにしています
+- オートチューン（強さも調整可能）・声質（フォルマント）の調整
+- 変換する前・変換した後の雑音除去
+
+### 読み込める形式
+
+WAV・MP3・FLAC・OGG・M4A・AAC・AIFF・CAF・Opus・WMA・WebM と、動画ファイル（MP4・MOV・M4V・MKV・AVI。音声だけを使う）。
+
+## コマンド
+
+| コマンド | 内容 |
+| --- | --- |
+| `npm run app` | 画面（:3000）と RVC サーバー（:8765）をまとめて起動（普段使い。画面は本番用） |
+| `npm run dev:all` | 同じく、まとめて起動（開発用。画面のコードの変更がすぐ反映される） |
+| `npm run dev` | 画面だけ起動（開発用） |
+| `npm run rvc:server` | RVC サーバーだけ起動（API の一覧は http://127.0.0.1:8765/docs ） |
+| `npm run rvc:setup` | RVC サーバーの準備（やり直しても問題なし） |
+| `npm test` | 自動テスト（サーバーの pytest・pyflakes、画面の型チェック・lint） |
+| `npm run test:e2e` | 上に加えて、本物の AI で学習→評価→自動ピッチの変換→曲の変換→容量の整理を通しで試す（数分〜十数分） |
+
+GitHub に置くと、Windows・macOS・Linux で自動テストが動きます（`.github/workflows/ci.yml`）。
+
+## フォルダ構成
+
+```
+app/                 画面（ホーム・モデルを作る・声を変換・モデル一覧）
+components/, lib/    画面の部品と、サーバーとの通信
+scripts/             準備・起動・テストのスクリプト（Windows・Mac 共通の Node.js）
+rvc-server/
+  rvc_api/           API サーバー（FastAPI）。学習・変換をジョブとして順番に実行
+    pipelines.py     学習と変換の手順
+    evaluation.py    検証用の音声の取り分け・保存ごとの評価・自動停止
+    mixing.py        曲の変換の仕上げ（声と伴奏を合わせる）
+    pretrains.py     事前学習モデルの一覧とダウンロード
+  engine/            Applio の Python で動かす処理（モデルの評価・声の高さの解析・モデルの情報）
+  separation/        BGM・伴奏を取り除く処理（separate.py）と、使う AI モデルの設定（models.json）
+  patches/           Applio に当てる修正（Mac の GPU 対応、保存の途中で止まっても壊れないファイルの書き方、
+                     日本語などを含む場所でのインデックスの読み書き、使わない onnxruntime を入れない）
+  tests/             自動テストと、通しの動作確認（e2e_smoke.py）
+  applio/            Applio 本体（Git 管理外）
+  .venv/             Python の仮想環境（Git 管理外）
+  .venv-separation/  BGM・伴奏を取り除く処理用の仮想環境（Git 管理外。PyTorch のバージョンが Applio と違うため別にしている）
+  data/              学習用の音声・モデル・変換結果（Git 管理外）
+    models/          学習したモデル（<名前>_<エポック>e_<ステップ>s.pth と <名前>.index、studio/ に評価結果と試し聴き用の音声）
+    datasets/        学習用の音声（.stages/ に下ごしらえの途中経過）
+    outputs/         変換した音声
+    pretrained/      コミュニティの事前学習モデル
+    separation-models/ BGM・伴奏を取り除くための AI モデル
+```
+
+## うまくいかないとき
+
+- **画面に「RVC サーバーに接続できません」と出る**: `npm run rvc:server` か `npm run app` でサーバーを起動してください。
+- **Windows で GPU が使われない（右上が「準備OK（CPU）」になる）**: NVIDIA のドライバーを最新にしてから、`npm run rvc:setup` をもう一度実行してください。
+- **学習が「メモリが足りなくなり…」で止まる**: 学習の詳しい設定でバッチサイズを下げてください（おすすめの値は PC の GPU のメモリに合わせて表示されます）。
+- **学習が途中で止まった**: 保存の間隔ごとに途中経過が残っています。モデル一覧の「続きから学習」で再開できます。
+  再開用のファイルは「別名で書き終えてから置き換える」ので、保存の途中で止まっても壊れません。
+  万一壊れていた場合は「続きから学習」できない旨を表示し、最初から学習し直しになる前に止めます。
+- **動画のダウンロードに失敗する**: yt-dlp は自動で更新されますが、それでも失敗するときは `npm run rvc:setup` を実行してください。
+  YouTube の読み込みには Node.js が必要です（`node` コマンドが使える状態にしてください）。
+- **「BGM・伴奏が入っている」や「曲（伴奏あり）」が選べない**: BGM を取り除く機能の準備ができていません。`npm run rvc:setup` を実行してから、サーバーを起動し直してください。
+- **BGM・伴奏を取り除く処理が「メモリが足りなくなり…」で止まる**: ほかのアプリを閉じるか、「速さ優先」を選んでください。
+- **サーバーの場所を変えたい**: 画面側は環境変数 `NEXT_PUBLIC_RVC_API_URL`、サーバー側は `RVC_HOST` / `RVC_PORT` / `RVC_DATA_DIR` で変更できます。
+  サーバーは、この PC を指す名前（127.0.0.1・localhost）で呼ばれたときだけ応じます（悪意のあるサイトがこの PC のサーバーを操作する手口を防ぐため）。
+  別の名前で使うときは `RVC_ALLOWED_HOSTS`（カンマ区切り）で足せます。
+
+## 外部への送信について
+
+学習・変換はすべてこの PC の中で行います。インターネットを使うのは、初回のセットアップ・AI モデルの初回ダウンロード・動画の取り込み・yt-dlp の更新だけです。
+使っているライブラリが開発元へ利用状況を送る機能（テレメトリ）は、アプリの動きに関係ないので、削除するか止めています。
+
+- **削除**: onnxruntime（Microsoft へ送る処理を含む）。Applio と audio-separator のうち、このアプリで使わない機能
+  （swift のピッチ検出・リアルタイム変換・ONNX 形式の分離モデル）だけが使うので、入れていません。
+  Windows では、onnxruntime だけが使っていた NVIDIA の部品（ダウンロード約1.7GB）も入れません。
+  前のセットアップで入っていた場合は、`npm run rvc:setup` が削除します。
+- **削除**: Next.js の、AI に不具合を報告させる機能（`agentFeedback`）の設定。
+- **止める**（必要なライブラリに組み込まれていて、削除はできない。止めた状態では送信の処理そのものが動きません）:
+  Next.js → Vercel（`NEXT_TELEMETRY_DISABLED`）、Hugging Face のライブラリ（`HF_HUB_DISABLE_TELEMETRY`）。
+  設定は `scripts/env.mjs` と `rvc-server/rvc_api/settings.py` にあります。
+
+## 利用上の注意
+
+- Applio は MIT ライセンスです。あわせて [Applio の利用規約](https://github.com/IAHispano/Applio/blob/main/TERMS_OF_USE.md) に従ってください。
+- BGM・伴奏を取り除く処理に使う audio-separator は MIT ライセンスです。AI モデルのうち、MelBand RoFormer（Kim）は MIT ライセンスです。
+  Revive V2・残響除去・ハモリ除去のモデルと、コミュニティの事前学習モデルの利用条件は、アプリを公開・配布する前に作者に確認してください。
+- ffmpeg（imageio-ffmpeg に同梱）は LGPL / GPL のライセンスです。配布するときはライセンスの表記が必要です。
+- 他の人の声を学習・変換に使うときは、必ず本人の許可を取ってください。

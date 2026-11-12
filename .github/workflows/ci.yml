@@ -1,0 +1,46 @@
+# Windows・macOS・Linux で、サーバーの自動テストと画面のチェックを行う（AI モデルは使わない）
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint
+
+      - uses: astral-sh/setup-uv@v6
+      - name: Applio を用意する（修正パッチのテスト用）
+        shell: bash
+        run: |
+          curl -L https://github.com/IAHispano/Applio/archive/refs/tags/3.7.1.tar.gz -o applio.tar.gz
+          tar -xzf applio.tar.gz -C rvc-server
+          mv rvc-server/Applio-3.7.1 rvc-server/applio
+      - name: テスト用の Python 環境
+        shell: bash
+        working-directory: rvc-server
+        run: |
+          uv venv .venv --python 3.12
+          uv pip install --python .venv fastapi uvicorn python-multipart numpy scipy soundfile soxr psutil requests imageio-ffmpeg==0.8.1 pytest httpx pyflakes
+      - name: pyflakes
+        shell: bash
+        working-directory: rvc-server
+        run: .venv/${{ runner.os == 'Windows' && 'Scripts/python.exe' || 'bin/python' }} -m pyflakes rvc_api engine separation/separate.py patches tests
+      - name: pytest
+        shell: bash
+        working-directory: rvc-server
+        run: .venv/${{ runner.os == 'Windows' && 'Scripts/python.exe' || 'bin/python' }} -m pytest tests -q

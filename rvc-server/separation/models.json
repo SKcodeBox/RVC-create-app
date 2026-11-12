@@ -1,0 +1,51 @@
+{
+  "_comment": "ボーカル分離の各手順で使う AI モデル（audio-separator が対応しているもの）。stem は残す音の名前、overlap は処理の区切りの重なり（指定なしはモデルの初期値）、download_mb はダウンロードの大きさ（目安）。BGM・伴奏の除去は、MUSDB18 の50曲で測った結果（SDR）から選んだ: 高精度 = Kim（overlap 2）と Revive V2 の平均 11.80dB、速さ優先 = Kim 単体 11.25dB。残響除去は、試した中で左右同じ残響（モノラル）にも効いた UVR-DeEcho-DeReverb を使う。順番は vocals → dereverb → karaoke（残響で左右に広がった声は、ハモリ除去でハモリと判定されて消えてしまうため、先に残響を取り除く）",
+  "steps": {
+    "vocals": {
+      "name": "BGM・伴奏の除去",
+      "label": "BGM・伴奏と声を分けています",
+      "quality": {
+        "high": {
+          "models": [
+            { "file": "vocals_mel_band_roformer.ckpt", "stem": "vocals", "overlap": 2, "download_mb": 913 },
+            { "file": "bs_roformer_vocals_revive_v2_unwa.ckpt", "stem": "vocals", "download_mb": 639 }
+          ],
+          "ensemble": "avg_wave",
+          "speed": 2.6
+        },
+        "fast": {
+          "models": [
+            { "file": "vocals_mel_band_roformer.ckpt", "stem": "vocals", "download_mb": 913 }
+          ],
+          "speed": 0.4
+        }
+      }
+    },
+    "karaoke": {
+      "name": "ハモリの除去",
+      "label": "ハモリ（コーラス）を取り除いています",
+      "quality": {
+        "high": {
+          "models": [
+            { "file": "bs_roformer_karaoke_frazer_becruily.ckpt", "stem": "Vocals", "download_mb": 204 }
+          ],
+          "speed": 1.1
+        }
+      }
+    },
+    "dereverb": {
+      "name": "残響・エコーの除去",
+      "label": "残響（リバーブ）とエコーを取り除いています",
+      "quality": {
+        "high": {
+          "models": [
+            { "file": "UVR-DeEcho-DeReverb.pth", "stem": "No Reverb", "download_mb": 223 }
+          ],
+          "speed": 0.13
+        }
+      }
+    }
+  },
+  "order": ["vocals", "dereverb", "karaoke"],
+  "qualities": ["high", "fast"]
+}

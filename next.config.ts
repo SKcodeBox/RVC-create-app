@@ -1,12 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  experimental: {
-    agentFeedback: true,
-  },
   cacheComponents: true,
   partialPrefetching: true,
+  // 開発中に画面の左下に出る Next.js のアイコンを表示しない（エラーの表示は残る）
+  devIndicators: false,
   turbopack: {
     rules: {
       "*.css": {

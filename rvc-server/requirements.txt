@@ -1,0 +1,17 @@
+# RVC エンジン（Applio）の依存関係。Gradio の画面用ライブラリは使わないので含めない
+# （Windows では Applio が NVIDIA の GPU 用のライブラリも入れる）
+-r applio/requirements-engine.txt
+
+# FastAPI でファイルを受け取るために必要
+python-multipart>=0.0.18
+
+# 音声・動画ファイルの読み込みと書き出し（ffmpeg を Windows・macOS・Linux 用に同梱したもの）
+imageio-ffmpeg==0.8.1
+
+# YouTube などの動画の URL から音声を取り出す（セットアップのたびと、1日1回まで自動で最新版へ更新する）
+yt-dlp[default]>=2026.10.26
+
+# 動作の確認（npm test）に使う
+pytest>=8
+httpx>=0.27
+pyflakes>=3

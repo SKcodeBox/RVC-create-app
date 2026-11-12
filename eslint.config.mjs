@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Python の RVC サーバー（Applio 本体や仮想環境を含む）は対象外
+    "rvc-server/**",
   ]),
 ]);
 

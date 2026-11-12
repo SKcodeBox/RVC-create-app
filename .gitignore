@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# RVC サーバー（Python）
+# 仮想環境・Applio 本体・学習データやモデルは Git に含めない（setup スクリプトで再現する）
+/rvc-server/.venv/
+/rvc-server/.venv-separation/
+/rvc-server/applio/
+/rvc-server/data/
+__pycache__/
+.pytest_cache/

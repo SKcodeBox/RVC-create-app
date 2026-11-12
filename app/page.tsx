@@ -1,69 +1,104 @@
-import Image from "next/image";
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { ArrowRightIcon, MicIcon, WaveIcon } from "@/components/icons";
+import { HomeStatus } from "./home-status";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="space-y-10">
+      <section>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">RVC Studio</h1>
+        <p className="mt-3 max-w-2xl text-lg text-zinc-600 dark:text-zinc-400">
+          声の録音から自分だけの声のモデルを作り、歌や話し声をその声に変換できます。
+          処理はすべてこの PC（Windows・Mac）の中で行います。
+        </p>
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ActionCard
+          href="/train"
+          icon={<MicIcon width={24} height={24} />}
+          title="声のモデルを作る"
+          description="声の録音（10〜30分がおすすめ）を学習させて、その声のモデルを作ります。"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <ActionCard
+          href="/convert"
+          icon={<WaveIcon width={24} height={24} />}
+          title="声を変換する"
+          description="音声ファイルを、作ったモデルの声に変換します。声の高さも調整できます。"
+        />
+      </div>
+
+      <HomeStatus />
+
+      <section aria-labelledby="how-to">
+        <h2 id="how-to" className="mb-4 text-lg font-semibold">
+          使い方
+        </h2>
+        <ol className="grid gap-4 sm:grid-cols-3">
+          <Step number={1} title="声を用意する">
+            声だけが入った音声を用意します。BGM や雑音、他の人の声が入っていないものが向いています。
+          </Step>
+          <Step number={2} title="モデルを作る">
+            音声を選んで学習を始めます。数時間かかることもありますが、ほかのページを見ていても学習は続きます。
+          </Step>
+          <Step number={3} title="変換する">
+            変換したい音声とモデルを選びます。男性→女性なら +12 など、声の高さを合わせるのがコツです。
+          </Step>
+        </ol>
+      </section>
     </div>
+  );
+}
+
+function ActionCard({
+  href,
+  icon,
+  title,
+  description,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:border-violet-400 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-violet-500"
+    >
+      <span className="flex size-11 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+        {icon}
+      </span>
+      <span className="flex items-center gap-2 text-lg font-semibold">
+        {title}
+        <ArrowRightIcon
+          width={18}
+          height={18}
+          className="text-zinc-400 transition group-hover:translate-x-0.5 group-hover:text-violet-600 dark:group-hover:text-violet-400"
+        />
+      </span>
+      <span className="text-sm text-zinc-600 dark:text-zinc-400">{description}</span>
+    </Link>
+  );
+}
+
+function Step({
+  number,
+  title,
+  children,
+}: {
+  number: number;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <li className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
+      <span className="flex size-7 items-center justify-center rounded-full bg-zinc-900 text-sm font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
+        {number}
+      </span>
+      <p className="mt-3 font-semibold">{title}</p>
+      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{children}</p>
+    </li>
   );
 }

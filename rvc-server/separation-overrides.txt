@@ -1,0 +1,4 @@
+# requirements-separation.txt を入れるときに、依存関係を上書きするための設定（uv の --override）。
+# diffq は一部の Demucs モデルだけが使うライブラリで、Mac 用の完成品がなくビルドも失敗しやすい。
+# このアプリで使う RoFormer 系のモデルには不要なので、入れないようにする。
+diffq ; sys_platform == "never"

@@ -3,10 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "node scripts/next.mjs dev",
+    "build": "node scripts/next.mjs build",
+    "start": "node scripts/next.mjs start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "app": "node scripts/dev-all.mjs --prod",
+    "dev:all": "node scripts/dev-all.mjs",
+    "rvc:setup": "node scripts/setup.mjs",
+    "rvc:server": "node scripts/rvc-server.mjs",
+    "test": "node scripts/test.mjs",
+    "test:e2e": "node scripts/test.mjs --e2e"
   },
   "dependencies": {
     "next": "16.4.5",
